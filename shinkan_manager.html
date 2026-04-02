@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新歓メンバー管理</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', sans-serif; background: #f5f4f0; color: #1a1a18; }
+
+  .app-header {
+    background: #fff; border-bottom: 0.5px solid rgba(0,0,0,0.12);
+    padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .app-title { font-size: 17px; font-weight: 600; color: #1a1a18; }
+  .app-subtitle { font-size: 12px; color: #888780; margin-top: 2px; }
+  .header-actions { display: flex; gap: 8px; }
+
+  .btn {
+    padding: 7px 14px; border-radius: 8px; font-size: 13px;
+    cursor: pointer; border: 0.5px solid rgba(0,0,0,0.2);
+    background: #fff; color: #1a1a18; transition: background 0.15s; font-family: inherit;
+  }
+  .btn:hover { background: #f5f4f0; }
+  .btn-primary { background: #185FA5; border-color: #185FA5; color: #E6F1FB; font-weight: 500; }
+  .btn-primary:hover { background: #0C447C; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-danger { border-color: #A32D2D; color: #A32D2D; }
+  .btn-danger:hover { background: #FCEBEB; }
+
+  .main-layout { display: flex; height: calc(100vh - 57px); overflow: hidden; }
+
+  .sidebar {
+    width: 220px; min-width: 220px; background: #fff;
+    border-right: 0.5px solid rgba(0,0,0,0.12);
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .sidebar-section { padding: 12px 14px 6px; font-size: 11px; font-weight: 600;
+    color: #888780; letter-spacing: 0.06em; text-transform: uppercase; }
+  .sidebar-item {
+    padding: 8px 14px; font-size: 13px; color: #5F5E5A;
+    cursor: pointer; border-left: 2px solid transparent; transition: all 0.1s;
+  }
+  .sidebar-item:hover { background: #f5f4f0; color: #1a1a18; }
+  .sidebar-item.active { border-left-color: #185FA5; color: #185FA5; background: #E6F1FB; font-weight: 600; }
+  .sidebar-count { float: right; background: #f5f4f0; border-radius: 99px; padding: 1px 7px; font-size: 11px; color: #888780; }
+
+  .content { flex: 1; overflow-y: auto; padding: 20px; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #f5f4f0; border-radius: 8px; padding: 12px 14px; }
+  .stat-label { font-size: 12px; color: #5F5E5A; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 600; color: #1a1a18; }
+  .stat-sub { font-size: 11px; color: #888780; margin-top: 2px; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .search-input {
+    flex: 1; padding: 7px 12px; border-radius: 8px;
+    border: 0.5px solid rgba(0,0,0,0.15); font-size: 13px;
+    background: #fff; color: #1a1a18; font-family: inherit;
+  }
+  .search-input:focus { outline: none; border-color: #378ADD; box-shadow: 0 0 0 2px #E6F1FB; }
+  select.filter-sel {
+    padding: 7px 10px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.15);
+    font-size: 13px; background: #fff; color: #1a1a18; cursor: pointer; font-family: inherit;
+  }
+
+  .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .member-card {
+    background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.12);
+    padding: 16px; cursor: pointer; transition: border-color 0.15s;
+  }
+  .member-card:hover { border-color: rgba(0,0,0,0.25); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; flex-shrink: 0; }
+  .av-blue { background: #B5D4F4; color: #0C447C; }
+  .av-teal { background: #9FE1CB; color: #085041; }
+  .av-coral { background: #F5C4B3; color: #712B13; }
+  .av-purple { background: #CECBF6; color: #3C3489; }
+  .av-amber { background: #FAC775; color: #633806; }
+
+  .card-name { font-size: 15px; font-weight: 600; color: #1a1a18; margin-bottom: 3px; }
+  .card-meta { font-size: 12px; color: #5F5E5A; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 500; margin-right: 4px; margin-bottom: 3px; }
+  .badge-blue { background: #E6F1FB; color: #185FA5; }
+  .badge-teal { background: #E1F5EE; color: #0F6E56; }
+  .badge-amber { background: #FAEEDA; color: #854F0B; }
+  .badge-gray { background: #F1EFE8; color: #5F5E5A; }
+  .badge-coral { background: #FAECE7; color: #993C1D; }
+  .badge-green { background: #EAF3DE; color: #3B6D11; }
+
+  .card-footer {
+    border-top: 0.5px solid rgba(0,0,0,0.1); padding-top: 10px; margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .att-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+  .att-present { background: #1D9E75; }
+  .att-late { background: #EF9F27; }
+  .att-absent { background: #E24B4A; }
+  .att-none { background: #e0dfd8; }
+  .att-rate { font-size: 12px; color: #5F5E5A; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 40px 20px; z-index: 100; overflow-y: auto;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.12);
+    width: 560px; max-width: 100%; margin-bottom: 40px;
+  }
+  .modal-header { padding: 16px 20px; border-bottom: 0.5px solid rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888780; line-height: 1; padding: 0; }
+  .modal-body { padding: 20px; }
+  .modal-footer { padding: 14px 20px; border-top: 0.5px solid rgba(0,0,0,0.1); display: flex; justify-content: flex-end; gap: 8px; }
+
+  .form-section-title { font-size: 11px; font-weight: 600; color: #888780; letter-spacing: 0.06em; text-transform: uppercase; margin: 16px 0 10px; }
+  .form-section-title:first-child { margin-top: 0; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 12px; color: #5F5E5A; margin-bottom: 5px; display: block; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; padding: 7px 10px; border-radius: 8px;
+    border: 0.5px solid rgba(0,0,0,0.18); font-size: 13px;
+    background: #fff; color: #1a1a18; font-family: inherit;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #378ADD; box-shadow: 0 0 0 2px #E6F1FB; }
+  .form-textarea { resize: vertical; min-height: 70px; }
+
+  .radio-group { display: flex; gap: 10px; flex-wrap: wrap; }
+  .radio-label {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    font-size: 13px; color: #1a1a18; padding: 6px 12px; border-radius: 8px;
+    border: 0.5px solid rgba(0,0,0,0.18); transition: all 0.1s; user-select: none;
+  }
+  .radio-label input { display: none; }
+  .radio-label.checked { border-color: #378ADD; background: #E6F1FB; color: #185FA5; font-weight: 600; }
+
+  .att-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .att-table th { background: #f5f4f0; padding: 8px 12px; font-weight: 500; color: #5F5E5A; text-align: left; border-bottom: 0.5px solid rgba(0,0,0,0.1); }
+  .att-table td { padding: 8px 12px; border-bottom: 0.5px solid rgba(0,0,0,0.07); color: #1a1a18; }
+  .att-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .detail-view { display: none; }
+  .detail-view.visible { display: block; }
+  .list-view.hidden { display: none; }
+
+  .back-btn { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5F5E5A; cursor: pointer; margin-bottom: 16px; }
+  .back-btn:hover { color: #1a1a18; }
+
+  .detail-header { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 20px; margin-bottom: 16px; display: flex; gap: 16px; align-items: flex-start; }
+  .detail-avatar { width: 56px; height: 56px; border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0; }
+  .detail-name { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .detail-card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 16px; }
+  .detail-card-title { font-size: 11px; font-weight: 600; color: #888780; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; }
+  .detail-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 0.5px solid rgba(0,0,0,0.07); font-size: 13px; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-key { color: #5F5E5A; }
+  .detail-val { color: #1a1a18; font-weight: 500; text-align: right; }
+
+  .notes-box { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #2C2C2A; color: #F1EFE8; padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  .loading-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.75);
+    align-items: center; justify-content: center; z-index: 200; font-size: 14px; color: #5F5E5A;
+  }
+  .loading-overlay.visible { display: flex; }
+
+  #empty-state { text-align: center; padding: 60px 20px; color: #888780; font-size: 14px; display: none; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <div class="app-title">新歓メンバー管理</div>
+    <div class="app-subtitle">出欠・所見・担当者を一括管理</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn" onclick="openSettings()">設定</button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ メンバー追加</button>
+  </div>
+</div>
+
+<div class="main-layout">
+  <div class="sidebar">
+    <div class="sidebar-section">表示</div>
+    <div class="sidebar-item active" onclick="filterView('all', this)">全員 <span class="sidebar-count" id="cnt-all">0</span></div>
+    <div class="sidebar-item" onclick="filterView('要フォロー', this)">要フォロー <span class="sidebar-count" id="cnt-follow">0</span></div>
+    <div class="sidebar-section">学部</div>
+    <div class="sidebar-item" onclick="filterView('人間科学部', this)">人間科学部 <span class="sidebar-count" id="cnt-jinkan">0</span></div>
+    <div class="sidebar-item" onclick="filterView('スポーツ科学部', this)">スポーツ科学部 <span class="sidebar-count" id="cnt-supoka">0</span></div>
+    <div class="sidebar-section">居住</div>
+    <div class="sidebar-item" onclick="filterView('実家', this)">実家 <span class="sidebar-count" id="cnt-jikka">0</span></div>
+    <div class="sidebar-item" onclick="filterView('一人暮らし', this)">一人暮らし <span class="sidebar-count" id="cnt-hitori">0</span></div>
+    <div class="sidebar-section">連絡担当</div>
+    <div id="contact-list"></div>
+  </div>
+
+  <div class="content">
+    <div id="list-view" class="list-view">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">総メンバー数</div>
+          <div class="stat-value" id="s-total">0</div>
+          <div class="stat-sub">新歓参加者</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">人間科学部</div>
+          <div class="stat-value" id="s-jinkan">0</div>
+          <div class="stat-sub">人科</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">スポーツ科学部</div>
+          <div class="stat-value" id="s-supoka">0</div>
+          <div class="stat-sub">スポ科</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">平均出席率</div>
+          <div class="stat-value" id="s-rate">—</div>
+          <div class="stat-sub">全イベント</div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <input class="search-input" id="search-box" placeholder="名前・担当者で検索..." oninput="renderCards()">
+        <select class="filter-sel" id="sort-sel" onchange="renderCards()">
+          <option value="name">名前順</option>
+          <option value="rate">出席率順</option>
+          <option value="contact">担当者順</option>
+        </select>
+        <button class="btn btn-sm" onclick="loadFromSheet()">シート同期</button>
+        <button class="btn btn-sm" onclick="exportCSV()">CSV出力</button>
+      </div>
+      <div class="member-grid" id="member-grid"></div>
+      <div id="empty-state">メンバーがいません。「+ メンバー追加」から追加してください。</div>
+    </div>
+    <div id="detail-view" class="detail-view"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay hidden" id="member-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">メンバーを追加</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="form-section-title">基本情報</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">氏名 *</label>
+          <input class="form-input" id="f-name" placeholder="山田 太郎">
+        </div>
+        <div class="form-group">
+          <label class="form-label">読み仮名</label>
+          <input class="form-input" id="f-kana" placeholder="やまだ たろう">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">LINE / SNS</label>
+          <input class="form-input" id="f-sns" placeholder="@example">
+        </div>
+        <div class="form-group">
+          <label class="form-label">電話番号</label>
+          <input class="form-input" id="f-phone" placeholder="090-xxxx-xxxx">
+        </div>
+      </div>
+      <div class="form-section-title">属性</div>
+      <div class="form-group">
+        <label class="form-label">学部</label>
+        <div class="radio-group" id="rg-faculty">
+          <label class="radio-label" onclick="selectRadio('rg-faculty',this,'人間科学部')"><input>人間科学部（人科）</label>
+          <label class="radio-label" onclick="selectRadio('rg-faculty',this,'スポーツ科学部')"><input>スポーツ科学部（スポ科）</label>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">居住</label>
+        <div class="radio-group" id="rg-living">
+          <label class="radio-label" onclick="selectRadio('rg-living',this,'実家')"><input>実家</label>
+          <label class="radio-label" onclick="selectRadio('rg-living',this,'一人暮らし')"><input>一人暮らし</label>
+        </div>
+      </div>
+      <div class="form-section-title">管理</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">連絡担当者</label>
+          <input class="form-input" id="f-contact" placeholder="担当幹部の名前">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ステータス</label>
+          <select class="form-select" id="f-status">
+            <option value="検討中">検討中</option>
+            <option value="入部見込み">入部見込み</option>
+            <option value="入部確定">入部確定</option>
+            <option value="要フォロー">要フォロー</option>
+            <option value="辞退">辞退</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">幹部からの所見</label>
+        <textarea class="form-textarea" id="f-notes" placeholder="印象・特徴・入部意欲など"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveMember()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay hidden" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">設定</div>
+      <button class="modal-close" onclick="document.getElementById('settings-modal').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Google Apps Script URL（出欠シート連携用）</label>
+        <input class="form-input" id="gas-url" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="form-group">
+        <label class="form-label">スプレッドシートID</label>
+        <input class="form-input" id="sheet-id" value="1s3dMsGs-85gh67CsJErJjtKmXd1-lzgTj21m-xTGEZY">
+      </div>
+      <p style="font-size:12px;color:#888780;margin-top:8px;line-height:1.6;">
+        GASのURLを設定すると「シート同期」でスケジュール・出欠データを自動取得します。<br>
+        メンバー情報はブラウザのlocalStorageに保存されます。
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="document.getElementById('settings-modal').classList.add('hidden')">閉じる</button>
+      <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loading">読み込み中...</div>
+
+<script>
+const STORAGE_KEY = 'shinkan_members_v2';
+const SETTINGS_KEY = 'shinkan_settings';
+const AVATARS = ['av-blue','av-teal','av-coral','av-purple','av-amber'];
+const STATUS_COLORS = {
+  '検討中':'badge-gray','入部見込み':'badge-blue','入部確定':'badge-green',
+  '要フォロー':'badge-amber','辞退':'badge-coral'
+};
+
+let members = [];
+let schedules = [];
+let currentFilter = 'all';
+let currentMemberId = null;
+let radioValues = {};
+
+function loadMembers() {
+  try { members = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { members = []; }
+}
+function saveMembers() { localStorage.setItem(STORAGE_KEY, JSON.stringify(members)); }
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveSettings() {
+  const s = { gasUrl: document.getElementById('gas-url').value.trim(), sheetId: document.getElementById('sheet-id').value.trim() };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  document.getElementById('settings-modal').classList.add('hidden');
+  showToast('設定を保存しました');
+}
+function openSettings() {
+  const s = loadSettings();
+  document.getElementById('gas-url').value = s.gasUrl || '';
+  document.getElementById('sheet-id').value = s.sheetId || '1s3dMsGs-85gh67CsJErJjtKmXd1-lzgTj21m-xTGEZY';
+  document.getElementById('settings-modal').classList.remove('hidden');
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 ? parts[0][0] + parts[1][0] : name[0] || '?';
+}
+function getAvatar(id) { return AVATARS[id % AVATARS.length]; }
+
+function getAttendance(member) {
+  const att = member.attendance || {};
+  const keys = Object.keys(att);
+  if (keys.length === 0) return { rate: null, history: [] };
+  let score = 0;
+  const history = keys.map(k => { score += att[k]; return { session: k, val: att[k] }; });
+  return { rate: Math.round(score / keys.length * 100), history };
+}
+
+function selectRadio(groupId, el, val) {
+  document.querySelectorAll('#' + groupId + ' .radio-label').forEach(l => l.classList.remove('checked'));
+  el.classList.add('checked');
+  radioValues[groupId] = val;
+}
+
+function openAddModal() {
+  document.getElementById('modal-title').textContent = 'メンバーを追加';
+  document.getElementById('edit-id').value = '';
+  ['f-name','f-kana','f-sns','f-phone','f-contact','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-status').value = '検討中';
+  document.querySelectorAll('.radio-label').forEach(l => l.classList.remove('checked'));
+  radioValues = {};
+  document.getElementById('member-modal').classList.remove('hidden');
+}
+function openEditModal(id) {
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('modal-title').textContent = 'メンバーを編集';
+  document.getElementById('edit-id').value = id;
+  document.getElementById('f-name').value = m.name || '';
+  document.getElementById('f-kana').value = m.kana || '';
+  document.getElementById('f-sns').value = m.sns || '';
+  document.getElementById('f-phone').value = m.phone || '';
+  document.getElementById('f-contact').value = m.contact || '';
+  document.getElementById('f-notes').value = m.notes || '';
+  document.getElementById('f-status').value = m.status || '検討中';
+  radioValues = { 'rg-faculty': m.faculty, 'rg-living': m.living };
+  document.querySelectorAll('.radio-label').forEach(l => l.classList.remove('checked'));
+  document.querySelectorAll('#rg-faculty .radio-label').forEach(l => {
+    if (l.textContent.trim().startsWith(m.faculty || 'XXX')) l.classList.add('checked');
+  });
+  document.querySelectorAll('#rg-living .radio-label').forEach(l => {
+    if (l.textContent.trim() === (m.living || 'XXX')) l.classList.add('checked');
+  });
+  document.getElementById('member-modal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('member-modal').classList.add('hidden'); }
+
+function saveMember() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('氏名を入力してください'); return; }
+  const editId = document.getElementById('edit-id').value;
+  const data = {
+    name, kana: document.getElementById('f-kana').value.trim(),
+    sns: document.getElementById('f-sns').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    contact: document.getElementById('f-contact').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+    status: document.getElementById('f-status').value,
+    faculty: radioValues['rg-faculty'] || '',
+    living: radioValues['rg-living'] || '',
+    updatedAt: new Date().toISOString()
+  };
+  if (editId) {
+    const idx = members.findIndex(m => String(m.id) === String(editId));
+    if (idx >= 0) members[idx] = Object.assign(members[idx], data);
+  } else {
+    data.id = Date.now();
+    data.attendance = {};
+    data.createdAt = new Date().toISOString();
+    members.push(data);
+  }
+  saveMembers(); closeModal(); updateAll();
+  showToast(editId ? '更新しました' : '追加しました');
+}
+
+function deleteMember(id) {
+  if (!confirm('このメンバーを削除しますか？')) return;
+  members = members.filter(m => m.id !== id);
+  saveMembers(); showDetail(null); updateAll();
+  showToast('削除しました');
+}
+
+function filterView(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderCards();
+}
+
+function getFilteredMembers() {
+  const q = (document.getElementById('search-box')?.value || '').toLowerCase();
+  return members.filter(m => {
+    const matchQ = !q || m.name.toLowerCase().includes(q) || (m.contact||'').toLowerCase().includes(q) || (m.kana||'').toLowerCase().includes(q);
+    if (!matchQ) return false;
+    if (currentFilter === 'all') return true;
+    if (currentFilter === '要フォロー') return m.status === '要フォロー';
+    if (currentFilter === '人間科学部') return m.faculty === '人間科学部';
+    if (currentFilter === 'スポーツ科学部') return m.faculty === 'スポーツ科学部';
+    if (currentFilter === '実家') return m.living === '実家';
+    if (currentFilter === '一人暮らし') return m.living === '一人暮らし';
+    return (m.contact || '') === currentFilter;
+  });
+}
+
+function renderCards() {
+  const sort = document.getElementById('sort-sel')?.value || 'name';
+  let filtered = getFilteredMembers();
+  if (sort === 'name') filtered.sort((a,b) => a.name.localeCompare(b.name, 'ja'));
+  else if (sort === 'rate') filtered.sort((a,b) => (getAttendance(b).rate??-1) - (getAttendance(a).rate??-1));
+  else if (sort === 'contact') filtered.sort((a,b) => (a.contact||'').localeCompare(b.contact||'','ja'));
+
+  const grid = document.getElementById('member-grid');
+  const empty = document.getElementById('empty-state');
+  if (filtered.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(m => {
+    const idx = members.indexOf(m);
+    const av = getAvatar(idx);
+    const att = getAttendance(m);
+    const dots = schedules.slice(0, 8).map(s => {
+      const v = (m.attendance || {})[s.id];
+      if (v === undefined) return '<span class="att-dot att-none"></span>';
+      if (v >= 1) return '<span class="att-dot att-present"></span>';
+      if (v > 0) return '<span class="att-dot att-late"></span>';
+      return '<span class="att-dot att-absent"></span>';
+    }).join('');
+    const sc = STATUS_COLORS[m.status] || 'badge-gray';
+    return `<div class="member-card" onclick="showDetail(${m.id})">
+      <div class="card-top">
+        <div class="avatar ${av}">${getInitials(m.name)}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="card-name">${m.name}</div>
+          <div class="card-meta">${m.kana || '　'}</div>
+          <div style="margin-top:5px;">
+            ${m.faculty ? `<span class="badge badge-blue">${m.faculty === '人間科学部' ? '人科' : 'スポ科'}</span>` : ''}
+            ${m.living ? `<span class="badge badge-teal">${m.living}</span>` : ''}
+            <span class="badge ${sc}">${m.status || '検討中'}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div>
+          <div style="display:flex;gap:3px;margin-bottom:3px;">${dots || '<span style="font-size:11px;color:#888780;">出欠記録なし</span>'}</div>
+          ${att.rate !== null ? `<div class="att-rate">出席率 ${att.rate}%</div>` : '<div class="att-rate" style="color:#888780;">—</div>'}
+        </div>
+        ${m.contact ? `<div style="font-size:11px;color:#5F5E5A;">担当: ${m.contact}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateSidebar() {
+  const counts = {
+    all: members.length,
+    follow: members.filter(m => m.status === '要フォロー').length,
+    jinkan: members.filter(m => m.faculty === '人間科学部').length,
+    supoka: members.filter(m => m.faculty === 'スポーツ科学部').length,
+    jikka: members.filter(m => m.living === '実家').length,
+    hitori: members.filter(m => m.living === '一人暮らし').length,
+  };
+  Object.keys(counts).forEach(k => { const el = document.getElementById('cnt-'+k); if (el) el.textContent = counts[k]; });
+  const contacts = [...new Set(members.map(m => m.contact).filter(Boolean))].sort();
+  document.getElementById('contact-list').innerHTML = contacts.map(c =>
+    `<div class="sidebar-item" onclick="filterView('${c}', this)">${c} <span class="sidebar-count">${members.filter(m=>m.contact===c).length}</span></div>`
+  ).join('');
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent = members.length;
+  document.getElementById('s-jinkan').textContent = members.filter(m => m.faculty === '人間科学部').length;
+  document.getElementById('s-supoka').textContent = members.filter(m => m.faculty === 'スポーツ科学部').length;
+  const withAtt = members.filter(m => Object.keys(m.attendance||{}).length > 0);
+  if (!withAtt.length) { document.getElementById('s-rate').textContent = '—'; return; }
+  document.getElementById('s-rate').textContent = Math.round(withAtt.reduce((a,m) => a + getAttendance(m).rate, 0) / withAtt.length) + '%';
+}
+
+function updateAll() { updateSidebar(); updateStats(); renderCards(); }
+
+function showDetail(id) {
+  const listView = document.getElementById('list-view');
+  const detailView = document.getElementById('detail-view');
+  if (!id) {
+    listView.classList.remove('hidden'); detailView.classList.remove('visible');
+    detailView.innerHTML = ''; currentMemberId = null; return;
+  }
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  currentMemberId = id;
+  listView.classList.add('hidden'); detailView.classList.add('visible');
+  const idx = members.indexOf(m);
+  const av = getAvatar(idx);
+  const att = getAttendance(m);
+  const sc = STATUS_COLORS[m.status] || 'badge-gray';
+  const attRows = schedules.map(s => {
+    const v = (m.attendance||{})[s.id];
+    let label = '未記録', dotStyle = 'background:#e0dfd8';
+    if (v !== undefined) {
+      if (v >= 1) { label = '出席'; dotStyle = 'background:#1D9E75'; }
+      else if (v > 0) { label = '遅刻・早退'; dotStyle = 'background:#EF9F27'; }
+      else { label = '欠席'; dotStyle = 'background:#E24B4A'; }
+    }
+    return `<tr><td>${s.date||''}</td><td>${s.name||''}</td><td><span class="att-status"><span class="status-dot" style="${dotStyle}"></span>${label}</span></td></tr>`;
+  }).join('') || '<tr><td colspan="3" style="color:#888780;text-align:center;padding:16px;">出欠記録はまだありません</td></tr>';
+
+  detailView.innerHTML = `
+    <div class="back-btn" onclick="showDetail(null)">← 一覧に戻る</div>
+    <div class="detail-header">
+      <div class="detail-avatar ${av}">${getInitials(m.name)}</div>
+      <div style="flex:1;">
+        <div class="detail-name">${m.name}</div>
+        <div style="font-size:13px;color:#5F5E5A;margin-bottom:8px;">${m.kana||''}</div>
+        <span class="badge badge-blue">${m.faculty||'学部未設定'}</span>
+        <span class="badge badge-teal">${m.living||'居住未設定'}</span>
+        <span class="badge ${sc}">${m.status||'検討中'}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="btn btn-sm" onclick="openEditModal(${id})">編集</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteMember(${id})">削除</button>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-card-title">連絡先 / 担当</div>
+        <div class="detail-row"><span class="detail-key">LINE/SNS</span><span class="detail-val">${m.sns||'—'}</span></div>
+        <div class="detail-row"><span class="detail-key">電話番号</span><span class="detail-val">${m.phone||'—'}</span></div>
+        <div class="detail-row"><span class="detail-key">連絡担当者</span><span class="detail-val">${m.contact||'—'}</span></div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">出欠サマリ</div>
+        <div class="detail-row"><span class="detail-key">出席率</span><span class="detail-val">${att.rate!==null?att.rate+'%':'—'}</span></div>
+        <div class="detail-row"><span class="detail-key">記録数</span><span class="detail-val">${att.history.length} 件</span></div>
+        <div class="detail-row"><span class="detail-key">出席</span><span class="detail-val">${att.history.filter(h=>h.val>=1).length} 回</span></div>
+        <div class="detail-row"><span class="detail-key">欠席</span><span class="detail-val">${att.history.filter(h=>h.val===0).length} 回</span></div>
+      </div>
+    </div>
+    <div class="notes-box">
+      <div class="detail-card-title">幹部からの所見</div>
+      <div style="font-size:14px;line-height:1.7;margin-top:8px;">${m.notes?m.notes.replace(/\n/g,'<br>'):'<span style="color:#888780;">所見はまだ記入されていません</span>'}</div>
+    </div>
+    <div class="notes-box">
+      <div class="detail-card-title">出欠履歴</div>
+      <div style="overflow-x:auto;margin-top:8px;">
+        <table class="att-table">
+          <thead><tr><th>日付</th><th>イベント名</th><th>出欠</th></tr></thead>
+          <tbody>${attRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function loadFromSheet() {
+  const s = loadSettings();
+  if (!s.gasUrl) { showToast('設定からGASのURLを入力してください'); openSettings(); return; }
+  document.getElementById('loading').classList.add('visible');
+  try {
+    const res = await fetch(s.gasUrl + '?action=getSchedules');
+    const json = await res.json();
+    schedules = json.schedules || [];
+    showToast('スケジュール ' + schedules.length + ' 件を取得しました');
+    updateAll();
+  } catch(e) {
+    showToast('取得に失敗しました: ' + e.message);
+  }
+  document.getElementById('loading').classList.remove('visible');
+}
+
+function exportCSV() {
+  const rows = [['氏名','読み仮名','学部','居住','LINE/SNS','電話番号','連絡担当','ステータス','出席率','所見']];
+  members.forEach(m => {
+    const att = getAttendance(m);
+    rows.push([m.name, m.kana||'', m.faculty||'', m.living||'', m.sns||'', m.phone||'',
+      m.contact||'', m.status||'', att.rate!==null?att.rate+'%':'—', m.notes||'']);
+  });
+  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '新歓メンバー_' + new Date().toLocaleDateString('ja-JP').replace(/\//g,'-') + '.csv';
+  a.click(); showToast('CSVを出力しました');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// Init
+loadMembers(); updateAll();
+</script>
+</body>
+</html>

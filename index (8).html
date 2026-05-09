@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>出席管理</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { background: #fdf6ee; font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; color: #2d2416; min-height: 100vh; }
+
+/* タブ */
+#tab-bar { display: none; }
+.tab-btn { flex: 1; padding: 12px 0; font-size: 13px; font-weight: 800; border: none; background: transparent; color: #b8996a; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.tab-btn.active { color: #f0a500; border-bottom-color: #f0a500; }
+
+/* ヘッダー */
+#header { background: #fff; border-bottom: 3px solid #f0a500; padding: 14px 16px; box-shadow: 0 2px 16px rgba(240,165,0,0.12); position: sticky; top: 0; z-index: 10; }
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.header-label { font-size: 10px; letter-spacing: 4px; color: #f0a500; font-weight: 800; }
+#settings-btn { border-radius: 8px; font-size: 12px; font-weight: 700; padding: 4px 10px; cursor: pointer; border: 1.5px solid #f0a500; background: #fff8e8; color: #c07800; }
+.header-mid { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+#session-label { background: transparent; border: none; border-bottom: 2px dashed #e8d5b0; color: #2d2416; font-size: 18px; font-weight: 800; outline: none; padding: 2px 4px; max-width: 200px; }
+#count-num { font-size: 40px; font-weight: 900; color: #f0a500; }
+#count-total { font-size: 14px; color: #b8996a; margin-left: 4px; }
+#progress-bar { background: #f0e8d8; border-radius: 99px; height: 7px; overflow: hidden; }
+#progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg,#f0a500,#e05a00); border-radius: 99px; transition: width 0.4s; }
+.header-bottom { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: #b8996a; }
+#pct-text { color: #e05a00; font-weight: 700; }
+
+/* ページ切り替え */
+.page { display: none; }
+.page.active { display: block; }
+
+/* 出欠ページ */
+#attendance-page { padding: 14px 12px 200px; max-width: 600px; margin: 0 auto; }
+#send-result { display: none; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; font-weight: 700; align-items: center; justify-content: space-between; }
+#send-result.ok { background: #efffef; border: 1.5px solid #6dcc6d; color: #2a7a2a; display: flex; }
+#send-result.err { background: #fff0f0; border: 1.5px solid #ffaaaa; color: #cc4444; display: flex; }
+#undo-btn { background: #fff; border: 1.5px solid #cc4444; border-radius: 8px; color: #cc4444; font-size: 12px; font-weight: 800; padding: 4px 10px; cursor: pointer; white-space: nowrap; margin-left: 8px; }
+
+/* グループフィルター */
+#group-filter-bar {
+  display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px;
+  padding-bottom: 4px; scrollbar-width: none;
+}
+#group-filter-bar::-webkit-scrollbar { display: none; }
+.group-filter-btn {
+  flex-shrink: 0; padding: 5px 14px; border-radius: 99px; border: 1.5px solid #e8ddd0;
+  background: #fff; color: #b8996a; font-size: 12px; font-weight: 700; cursor: pointer;
+  white-space: nowrap; transition: all 0.15s;
+}
+.group-filter-btn.active {
+  background: #f0a500; border-color: #f0a500; color: #fff;
+}
+
+/* グループセクション */
+.group-section { margin-bottom: 18px; }
+.group-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; padding: 0 2px;
+}
+.group-section-title {
+  font-size: 12px; font-weight: 800; color: #b8996a; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 6px;
+}
+.group-section-count {
+  font-size: 11px; color: #d0b880; font-weight: 600;
+}
+.group-section-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+
+#members-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.member-card { background: #fff; border: 2px solid #e8ddd0; border-radius: 14px; padding: 12px 10px 10px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: grab; user-select: none; }
+.member-card.on { background: #fff8e8; border-color: #f0a500; box-shadow: 0 4px 16px rgba(240,165,0,0.2); }
+.member-card.dragging { opacity: 0.4; }
+.member-card.drag-over { border-color: #f0a500; border-style: dashed; }
+.member-del { position: absolute; top: 5px; right: 5px; background: none; border: none; cursor: pointer; font-size: 11px; color: #d0c0a8; padding: 2px; }
+.member-name { font-size: 13px; font-weight: 700; color: #4a3820; margin-bottom: 8px; padding-right: 14px; cursor: pointer; word-break: break-all; }
+.member-card.on .member-name { color: #c07800; }
+.member-name-input { background: #fff8e8; border: 1.5px solid #f0a500; border-radius: 6px; color: #2d2416; font-size: 13px; font-weight: 700; padding: 3px 6px; outline: none; width: 100%; margin-bottom: 8px; }
+.member-toggle { width: 100%; padding: 8px 0; border-radius: 9px; border: none; cursor: pointer; font-weight: 800; font-size: 12px; background: #f5ede0; color: #b8996a; }
+.member-card.on .member-toggle { background: linear-gradient(135deg,#f0a500,#e05a00); color: #fff; }
+.member-card.partial { background: #eef4ff; border-color: #5b8ae0; }
+.member-card.partial .member-name { color: #1a3f80; }
+.member-card.partial .member-toggle { background: linear-gradient(135deg,#5b8ae0,#2155b8); color: #fff; }
+
+/* グループバッジ */
+.member-group-badge {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  padding: 1px 6px; border-radius: 99px; margin-bottom: 4px;
+  background: #f0e8d8; color: #b8996a;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ボトムバー */
+#bottom-bar { background: linear-gradient(0deg,#fdf6ee 75%,transparent); padding: 10px 14px 52px; position: fixed; bottom: 0; left: 0; right: 0; }
+.bottom-inner { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+#send-btn { width: 100%; padding: 13px; background: linear-gradient(135deg,#34a853,#1e7e34); border: none; border-radius: 13px; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 18px rgba(52,168,83,0.3); }
+#send-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+.bottom-row { display: flex; gap: 8px; }
+#add-btn { flex: 1; background: linear-gradient(135deg,#f0a500,#e05a00); border: none; border-radius: 13px; color: #fff; font-size: 14px; font-weight: 800; padding: 12px; cursor: pointer; }
+#reset-btn { background: #fff; border: 2px solid #e8ddd0; border-radius: 13px; color: #b8996a; font-size: 13px; font-weight: 700; padding: 12px 16px; cursor: pointer; }
+#add-form { flex: 1; display: none; gap: 8px; }
+#add-form.show { display: flex; }
+#new-name-input { flex: 1; background: #fff; border: 2px solid #f0a500; border-radius: 11px; color: #2d2416; font-size: 14px; padding: 10px 12px; outline: none; }
+#add-confirm-btn { background: #f0a500; border: none; border-radius: 11px; color: #fff; font-size: 14px; font-weight: 800; padding: 0 14px; cursor: pointer; }
+#add-cancel-btn { background: #e8ddd0; border: none; border-radius: 11px; color: #7a6a54; font-size: 17px; padding: 0 11px; cursor: pointer; }
+
+/* スケジュールページ */
+#schedule-page { padding: 16px 14px 120px; max-width: 600px; margin: 0 auto; }
+.schedule-section-title { font-size: 11px; font-weight: 800; color: #b8996a; letter-spacing: 2px; margin: 16px 0 8px; }
+.schedule-item { background: #fff; border: 2px solid #e8ddd0; border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.schedule-item:hover { border-color: #f0a500; background: #fff8e8; }
+.schedule-date { font-size: 12px; color: #b8996a; font-weight: 600; margin-bottom: 2px; }
+.schedule-name { font-size: 15px; font-weight: 800; color: #2d2416; }
+.schedule-arrow { font-size: 16px; color: #b8996a; }
+#schedule-add-btn { position: fixed; bottom: 0; left: 0; right: 0; padding: 13px 14px 52px; background: linear-gradient(135deg,#f0a500,#e05a00); border: none; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; }
+
+/* モーダル */
+#modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+#modal-overlay.show { display: flex; }
+#modal { background: #fff; border-radius: 20px; padding: 24px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+#modal h2 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+#modal p { font-size: 12px; color: #8a7a6a; margin-bottom: 16px; line-height: 1.8; }
+.modal-input { width: 100%; background: #f5ede0; border: 2px solid #e8d5b0; border-radius: 10px; font-size: 13px; padding: 10px 12px; outline: none; color: #2d2416; margin-bottom: 8px; }
+.modal-btns { display: flex; gap: 8px; margin-top: 12px; }
+#modal-save-btn { flex: 1; background: linear-gradient(135deg,#f0a500,#e05a00); border: none; border-radius: 12px; color: #fff; font-size: 14px; font-weight: 800; padding: 13px; cursor: pointer; }
+#modal-close-btn { background: #f0e8d8; border: none; border-radius: 12px; color: #8a7a6a; font-size: 14px; padding: 13px 14px; cursor: pointer; }
+#modal-del-btn { background: #fff0f0; border: 1.5px solid #ffaaaa; border-radius: 12px; color: #cc4444; font-size: 14px; padding: 13px 14px; cursor: pointer; display: none; }
+
+/* グループ管理モーダル用 */
+.group-list-item {
+  display: flex; align-items: center; gap: 8px;
+  background: #f5ede0; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
+}
+.group-list-color { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.group-list-name { flex: 1; font-size: 13px; font-weight: 700; color: #2d2416; }
+.group-list-edit { background: none; border: none; color: #b8996a; font-size: 12px; cursor: pointer; padding: 2px 6px; }
+.group-list-del { background: none; border: none; color: #cc4444; font-size: 14px; cursor: pointer; padding: 2px 6px; }
+.group-add-row { display: flex; gap: 6px; margin-top: 8px; }
+.group-add-input { flex: 1; background: #fff; border: 2px solid #f0a500; border-radius: 10px; font-size: 13px; padding: 8px 10px; outline: none; color: #2d2416; }
+.group-add-btn { background: #f0a500; border: none; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 800; padding: 0 14px; cursor: pointer; }
+
+/* メンバーグループ設定モーダル用 */
+.group-select-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.group-select-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px; border: 2px solid #e8ddd0;
+  cursor: pointer; background: #fff; transition: all 0.15s;
+}
+.group-select-item.selected { background: #fff8e8; border-color: #f0a500; }
+.group-select-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.group-select-label { font-size: 14px; font-weight: 700; color: #2d2416; }
+
+@media (max-width: 380px) { #members-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* グループ選択ページ */
+#group-select-page { display: none; min-height: 100vh; background: #fdf6ee; }
+#group-select-page.active { display: block; }
+.group-select-page-header {
+  background: #fff; border-bottom: 3px solid #f0a500;
+  padding: 14px 16px; box-shadow: 0 2px 16px rgba(240,165,0,0.12);
+  position: sticky; top: 0; z-index: 10;
+}
+.group-select-page-back {
+  background: none; border: none; color: #f0a500; font-size: 13px;
+  font-weight: 800; cursor: pointer; padding: 0; margin-bottom: 8px; display: block;
+}
+.group-select-page-title {
+  font-size: 10px; letter-spacing: 4px; color: #f0a500; font-weight: 800; margin-bottom: 4px;
+}
+.group-select-page-session {
+  font-size: 18px; font-weight: 800; color: #2d2416;
+}
+.group-select-page-body {
+  padding: 24px 16px; max-width: 600px; margin: 0 auto;
+}
+.group-select-page-label {
+  font-size: 13px; font-weight: 800; color: #b8996a; letter-spacing: 2px; margin-bottom: 16px;
+}
+.group-btn-list { display: flex; flex-direction: column; gap: 12px; }
+.group-btn-item {
+  display: flex; align-items: center; gap: 16px;
+  background: #fff; border: 2px solid #e8ddd0; border-radius: 18px;
+  padding: 20px 20px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all 0.15s; user-select: none;
+}
+.group-btn-item:active { transform: scale(0.98); }
+.group-btn-color { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
+.group-btn-name { font-size: 20px; font-weight: 800; color: #2d2416; flex: 1; }
+.group-btn-count { font-size: 13px; color: #b8996a; font-weight: 600; }
+.group-btn-arrow { font-size: 18px; color: #b8996a; }
+.group-btn-all {
+  display: flex; align-items: center; gap: 16px;
+  background: linear-gradient(135deg,#f0a500,#e05a00);
+  border: none; border-radius: 18px; padding: 20px 20px;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(240,165,0,0.3);
+  transition: all 0.15s; user-select: none; width: 100%;
+  margin-bottom: 12px;
+}
+.group-btn-all:active { transform: scale(0.98); }
+.group-btn-all-name { font-size: 20px; font-weight: 800; color: #fff; flex: 1; text-align: left; }
+.group-btn-all-count { font-size: 13px; color: rgba(255,255,255,0.8); font-weight: 600; }
+.group-btn-all-arrow { font-size: 18px; color: rgba(255,255,255,0.8); }
+</style>
+</head>
+<body>
+
+<div id="tab-bar">
+  <button class="tab-btn active" id="tab-schedule-top" style="pointer-events:none;">📅 スケジュール</button>
+</div>
+
+<div id="header" style="display:none;">
+  <div id="back-to-schedule" style="display:none;margin-bottom:8px;">
+    <button onclick="switchTab('group-select')" style="background:none;border:none;color:#f0a500;font-size:13px;font-weight:800;cursor:pointer;padding:0;">← グループ選択に戻る</button>
+  </div>
+  <div class="header-top">
+    <div class="header-label">● CIRCLE ATTENDANCE</div>
+    <button id="settings-btn">⚙️ 連携済み</button>
+  </div>
+  <div class="header-mid">
+    <input id="session-label" type="text" value="第1回活動" />
+    <div>
+      <span id="count-num">0</span>
+      <span id="count-total">/ 0名</span>
+    </div>
+  </div>
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+  <div class="header-bottom">
+    <span>出席率 <span id="pct-text">0%</span></span>
+    <span>遅刻・早退 <span id="late-text">0</span>名</span>
+    <span>欠席 <span id="absent-text">0</span>名</span>
+  </div>
+</div>
+
+<div id="attendance-page" class="page">
+  <div id="send-result">
+    <span id="result-msg"></span>
+    <button id="undo-btn">↩ 取り消す</button>
+  </div>
+  <!-- グループフィルター -->
+  <div id="group-filter-bar"></div>
+  <!-- メンバーグリッド（グループセクション含む） -->
+  <div id="members-container"></div>
+</div>
+
+<div id="group-select-page" class="page">
+  <div class="group-select-page-header">
+    <button class="group-select-page-back" onclick="switchTab('schedule')">← スケジュールに戻る</button>
+    <div class="group-select-page-title">● CIRCLE ATTENDANCE</div>
+    <div class="group-select-page-session" id="group-select-session-label"></div>
+  </div>
+  <div class="group-select-page-body">
+    <div class="group-select-page-label">グループを選択</div>
+    <div id="group-btn-list"></div>
+  </div>
+</div>
+
+<div id="schedule-page" class="page active">
+  <div id="schedule-loading" style="text-align:center;color:#b8996a;font-size:13px;padding:30px 0;">読み込み中...</div>
+  <div id="schedule-list"></div>
+  <button id="schedule-add-btn">＋ スケジュールを追加</button>
+</div>
+
+<div id="bottom-bar" style="display:none;">
+  <div class="bottom-inner">
+    <button id="send-btn">📊 スプレッドシートに記録する</button>
+    <div class="bottom-row">
+      <div id="add-form">
+        <input id="new-name-input" type="text" placeholder="名前を入力..." />
+        <button id="add-confirm-btn">追加</button>
+        <button id="add-cancel-btn">✕</button>
+      </div>
+      <button id="add-btn">＋ メンバー追加</button>
+      <button id="reset-btn">リセット</button>
+    </div>
+    <!-- グループ管理ボタン -->
+    <div class="bottom-row" style="margin-top:-2px;">
+      <button id="manage-groups-btn" style="flex:1;background:#fff;border:2px solid #e8ddd0;border-radius:13px;color:#b8996a;font-size:13px;font-weight:700;padding:10px;cursor:pointer;">🏷️ グループ管理</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title"></h2>
+    <p id="modal-desc"></p>
+    <div id="modal-body"></div>
+    <div class="modal-btns">
+      <button id="modal-save-btn">保存</button>
+      <button id="modal-del-btn">削除</button>
+      <button id="modal-close-btn">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== データ =====
+const GAS_URL = "https://script.google.com/macros/s/AKfycby7DVWcAxD6X8Vyw_sJLiOWDEkwsuAgsfgqdV7vEBGUv0QXsP00gjkWx2hZGKEt0qef/exec";
+const MEMBERS_VERSION = "v3";
+const INITIAL_MEMBERS = [
+  {id:1,name:"こうせい"},{id:2,name:"なおき"},{id:3,name:"きょうへい"},{id:4,name:"たけし"},
+  {id:5,name:"いしい"},{id:6,name:"まさと"},{id:7,name:"ほりいけ"},{id:8,name:"こういち"},
+  {id:9,name:"まさひろ"},{id:10,name:"すず"},{id:11,name:"あき"},{id:12,name:"ゆり"},
+  {id:13,name:"ともえ"},{id:14,name:"あやみ"},{id:15,name:"りな"},{id:16,name:"ひなの"},
+  {id:17,name:"あいり"},{id:18,name:"みさき"},{id:19,name:"伊原こころ"},{id:20,name:"えいな"},
+  {id:21,name:"はると"},{id:22,name:"しょうき"},{id:23,name:"かなた"},{id:24,name:"たいせい"},
+  {id:25,name:"ともや"},{id:26,name:"ゆうせい"},{id:27,name:"しょうま"},{id:28,name:"しんちゃん"},
+  {id:29,name:"だいち"},{id:30,name:"ゆうたろう"},{id:31,name:"ようすけ"},{id:32,name:"まさたか"},
+  {id:33,name:"とも"},{id:34,name:"れお"},{id:35,name:"りょう"},{id:36,name:"かえで"},
+  {id:37,name:"このか"},{id:38,name:"こはる"},{id:39,name:"すずの"},{id:40,name:"ひなこ"},
+  {id:41,name:"あかり"},{id:42,name:"ひなた"},{id:43,name:"みづき"},{id:44,name:"みゆ"}
+];
+
+// グループカラーパレット
+const GROUP_COLORS = [
+  "#f0a500","#e05a00","#34a853","#5b8ae0","#e040a0",
+  "#8e44ad","#16a085","#e74c3c","#2c3e50","#7f8c8d"
+];
+
+let members = [];
+let memberStatus = {};
+let memberGroups = {}; // memberId -> groupId
+let groups = []; // [{id, name, color}]
+let lastSessionId = null;
+let schedules = [];
+let dragSrcId = null;
+let modalMode = "settings";
+let editingScheduleId = null;
+let currentTab = "attendance";
+let currentEventDate = null;
+let activeGroupFilter = "all"; // "all" | groupId
+let editingMemberIdForGroup = null;
+
+// ===== 初期化 =====
+function init() {
+  try {
+    const ver = localStorage.getItem("membersVersion");
+    const saved = localStorage.getItem("members");
+    if (saved && ver === MEMBERS_VERSION) {
+      members = JSON.parse(saved);
+    } else {
+      members = INITIAL_MEMBERS.map(function(m) { return {id: m.id, name: m.name}; });
+      localStorage.setItem("members", JSON.stringify(members));
+      localStorage.setItem("membersVersion", MEMBERS_VERSION);
+    }
+  } catch(e) {
+    members = INITIAL_MEMBERS.map(function(m) { return {id: m.id, name: m.name}; });
+  }
+
+  // グループ読み込み（localStorageをキャッシュとして先に表示し、その後スプレッドシートから同期）
+  try {
+    var sg = localStorage.getItem("groups");
+    if (sg) groups = JSON.parse(sg);
+  } catch(e) { groups = []; }
+  try {
+    var smg = localStorage.getItem("memberGroups");
+    if (smg) memberGroups = JSON.parse(smg);
+  } catch(e) { memberGroups = {}; }
+
+  document.getElementById("settings-btn").onclick = openSettings;
+  document.getElementById("send-btn").onclick = sendToSheet;
+  document.getElementById("undo-btn").onclick = undoRecord;
+  document.getElementById("add-btn").onclick = showAddForm;
+  document.getElementById("add-cancel-btn").onclick = cancelAdd;
+  document.getElementById("add-confirm-btn").onclick = confirmAdd;
+  document.getElementById("reset-btn").onclick = resetAttendance;
+  document.getElementById("schedule-add-btn").onclick = openAddSchedule;
+  document.getElementById("modal-save-btn").onclick = saveModal;
+  document.getElementById("modal-del-btn").onclick = deleteScheduleItem;
+  document.getElementById("modal-close-btn").onclick = closeModal;
+  document.getElementById("modal-overlay").onclick = function(e) { if (e.target === this) closeModal(); };
+  document.getElementById("new-name-input").onkeydown = function(e) { if (e.key === "Enter") confirmAdd(); };
+  document.getElementById("manage-groups-btn").onclick = openManageGroups;
+
+  renderAll();
+  loadSchedules();
+  loadGroupsFromSheet();
+}
+
+// ===== グループのスプレッドシート同期 =====
+function loadGroupsFromSheet() {
+  fetch(GAS_URL + "?action=getMemberList")
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if (!json || !json.members || json.members.length === 0) return;
+
+      // メンバー一覧を更新
+      members = json.members.map(function(m, i) {
+        return { id: i + 1, name: m.name };
+      });
+      localStorage.setItem("members", JSON.stringify(members));
+
+      // グループ一覧を構築（重複排除）
+      var groupNames = [];
+      json.members.forEach(function(m) {
+        if (m.group && groupNames.indexOf(m.group) === -1) groupNames.push(m.group);
+      });
+      var colorPalette = ["#f0a500","#e05a00","#34a853","#5b8ae0","#e040a0","#8e44ad","#16a085","#e74c3c","#2c3e50","#7f8c8d"];
+      // 既存グループの色を引き継ぐ
+      var existingGroupMap = {};
+      groups.forEach(function(g){ existingGroupMap[g.name] = g.color; });
+      groups = groupNames.map(function(name, i) {
+        return { id: name, name: name, color: existingGroupMap[name] || colorPalette[i % colorPalette.length] };
+      });
+      localStorage.setItem("groups", JSON.stringify(groups));
+
+      // メンバーとグループの対応を構築
+      memberGroups = {};
+      json.members.forEach(function(m, i) {
+        if (m.group) memberGroups[i + 1] = m.group;
+      });
+      localStorage.setItem("memberGroups", JSON.stringify(memberGroups));
+
+      renderAll();
+    })
+    .catch(function(){});
+}
+
+// ===== グループ保存（localStorage + スプレッドシート） =====
+function saveGroups() {
+  localStorage.setItem("groups", JSON.stringify(groups));
+  fetchPost({action: "saveGroups", groups: groups});
+}
+var _saveMemberGroupsTimer = null;
+function saveMemberGroups() {
+  localStorage.setItem("memberGroups", JSON.stringify(memberGroups));
+  if (_saveMemberGroupsTimer) clearTimeout(_saveMemberGroupsTimer);
+  _saveMemberGroupsTimer = setTimeout(function() {
+    fetchPost({action: "saveMemberGroups", memberGroups: memberGroups});
+  }, 800);
+}
+
+function fetchPost(payload) {
+  var form = new FormData();
+  form.append("payload", JSON.stringify(payload));
+  fetch(GAS_URL, {method: "POST", body: form}).catch(function(){});
+}
+
+function getGroupById(id) { return groups.find(function(g){return g.id===id;}); }
+
+function getGroupColor(groupId) {
+  var g = getGroupById(groupId);
+  return g ? g.color : "#e8ddd0";
+}
+function getGroupName(groupId) {
+  var g = getGroupById(groupId);
+  return g ? g.name : "";
+}
+
+// ===== グループフィルター =====
+function renderGroupFilter() {
+  var bar = document.getElementById("group-filter-bar");
+  bar.innerHTML = "";
+
+  var allBtn = document.createElement("button");
+  allBtn.className = "group-filter-btn" + (activeGroupFilter === "all" ? " active" : "");
+  allBtn.textContent = "すべて";
+  allBtn.onclick = function() { activeGroupFilter = "all"; renderAll(); };
+  bar.appendChild(allBtn);
+
+  // グループなしメンバーがいれば表示
+  var hasNoGroup = members.some(function(m){ return !memberGroups[m.id]; });
+  if (hasNoGroup) {
+    var noBtn = document.createElement("button");
+    noBtn.className = "group-filter-btn" + (activeGroupFilter === "none" ? " active" : "");
+    noBtn.textContent = "未分類";
+    noBtn.onclick = function() { activeGroupFilter = "none"; renderAll(); };
+    bar.appendChild(noBtn);
+  }
+
+  groups.forEach(function(g) {
+    var btn = document.createElement("button");
+    btn.className = "group-filter-btn" + (activeGroupFilter === g.id ? " active" : "");
+    btn.style.borderColor = g.color;
+    if (activeGroupFilter === g.id) {
+      btn.style.background = g.color;
+      btn.style.color = "#fff";
+    }
+    btn.textContent = g.name;
+    btn.onclick = (function(gid){ return function(){ activeGroupFilter = gid; renderAll(); }; })(g.id);
+    bar.appendChild(btn);
+  });
+}
+
+// ===== メンバーレンダリング =====
+function renderAll() {
+  renderGroupFilter();
+  renderGroupedMembers();
+  updateHeader();
+}
+
+function getFilteredMembers() {
+  if (activeGroupFilter === "all") return members;
+  if (activeGroupFilter === "none") return members.filter(function(m){ return !memberGroups[m.id]; });
+  return members.filter(function(m){ return memberGroups[m.id] === activeGroupFilter; });
+}
+
+function renderGroupedMembers() {
+  var container = document.getElementById("members-container");
+  container.innerHTML = "";
+
+  var filtered = getFilteredMembers();
+
+  if (activeGroupFilter !== "all") {
+    // フィルター時はシンプルにグリッドだけ
+    var grid = document.createElement("div");
+    grid.className = "member-grid-flat";
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:8px;";
+    filtered.forEach(function(m){ grid.appendChild(createMemberCard(m)); });
+    container.appendChild(grid);
+    return;
+  }
+
+  // グループなしメンバー
+  var noGroupMembers = members.filter(function(m){ return !memberGroups[m.id]; });
+  // グループごと
+  var groupOrder = groups.slice();
+
+  // グループなしを最初に（グループがある場合は末尾に）
+  if (groups.length > 0 && noGroupMembers.length > 0) {
+    renderGroupSection(container, null, noGroupMembers);
+  }
+  groupOrder.forEach(function(g) {
+    var gMembers = members.filter(function(m){ return memberGroups[m.id] === g.id; });
+    if (gMembers.length > 0) {
+      renderGroupSection(container, g, gMembers);
+    }
+  });
+  // グループがない場合はフラット
+  if (groups.length === 0) {
+    var grid = document.createElement("div");
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:8px;";
+    members.forEach(function(m){ grid.appendChild(createMemberCard(m)); });
+    container.appendChild(grid);
+  }
+}
+
+function renderGroupSection(container, group, sectionMembers) {
+  var section = document.createElement("div");
+  section.className = "group-section";
+
+  // ヘッダー
+  var header = document.createElement("div");
+  header.className = "group-section-header";
+
+  var titleEl = document.createElement("div");
+  titleEl.className = "group-section-title";
+  if (group) {
+    var dot = document.createElement("span");
+    dot.className = "group-section-dot";
+    dot.style.background = group.color;
+    titleEl.appendChild(dot);
+    titleEl.appendChild(document.createTextNode(group.name));
+  } else {
+    titleEl.appendChild(document.createTextNode("未分類"));
+  }
+
+  // 出席人数
+  var present = sectionMembers.filter(function(m){
+    var s = memberStatus[m.id] || '';
+    return s === 'present' || s === 'partial';
+  }).length;
+  var countEl = document.createElement("div");
+  countEl.className = "group-section-count";
+  countEl.textContent = present + " / " + sectionMembers.length + "名";
+
+  header.appendChild(titleEl);
+  header.appendChild(countEl);
+  section.appendChild(header);
+
+  // グリッド
+  var grid = document.createElement("div");
+  grid.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:8px;";
+  sectionMembers.forEach(function(m){ grid.appendChild(createMemberCard(m)); });
+  section.appendChild(grid);
+  container.appendChild(section);
+}
+
+function createMemberCard(m) {
+  var info = getStatusInfo(m.id);
+  var card = document.createElement("div");
+  card.className = "member-card" + (info.cls ? " " + info.cls : "");
+  card.id = "card-" + m.id;
+  card.draggable = true;
+
+  var delBtn = document.createElement("button");
+  delBtn.className = "member-del";
+  delBtn.textContent = "✕";
+  delBtn.onclick = function(e) { e.stopPropagation(); removeMember(m.id); };
+
+  // グループバッジ（グループが設定されていれば表示）
+  var gid = memberGroups[m.id];
+  if (gid && getGroupById(gid)) {
+    var badge = document.createElement("div");
+    badge.className = "member-group-badge";
+    badge.style.background = getGroupColor(gid) + "22";
+    badge.style.color = getGroupColor(gid);
+    badge.textContent = getGroupName(gid);
+    badge.onclick = function(e) { e.stopPropagation(); openSetMemberGroup(m.id); };
+    card.appendChild(badge);
+  }
+
+  var nameDiv = document.createElement("div");
+  nameDiv.className = "member-name";
+  nameDiv.textContent = m.name;
+  nameDiv.onclick = function(e) { e.stopPropagation(); startEdit(m.id); };
+
+  // グループ未設定でグループが存在する場合はグループ設定ボタン表示
+  if (!gid && groups.length > 0) {
+    var setBadge = document.createElement("div");
+    setBadge.className = "member-group-badge";
+    setBadge.style.cursor = "pointer";
+    setBadge.textContent = "+ グループ";
+    setBadge.onclick = function(e) { e.stopPropagation(); openSetMemberGroup(m.id); };
+    card.appendChild(setBadge);
+  }
+
+  var toggleBtn = document.createElement("button");
+  toggleBtn.className = "member-toggle";
+  toggleBtn.textContent = info.label;
+  toggleBtn.onclick = function(e) { e.stopPropagation(); toggleMember(m.id); };
+
+  card.appendChild(delBtn);
+  card.appendChild(nameDiv);
+  card.appendChild(toggleBtn);
+
+  card.ondragstart = function(e) { dragSrcId = m.id; card.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; };
+  card.ondragend = function() { card.classList.remove("dragging"); document.querySelectorAll(".drag-over").forEach(function(c){c.classList.remove("drag-over");}); };
+  card.ondragover = function(e) { e.preventDefault(); card.classList.add("drag-over"); };
+  card.ondragleave = function() { card.classList.remove("drag-over"); };
+  card.ondrop = function(e) {
+    e.preventDefault();
+    var si = members.findIndex(function(x){return x.id===dragSrcId;});
+    var di = members.findIndex(function(x){return x.id===m.id;});
+    if (si === di) return;
+    var item = members.splice(si, 1)[0];
+    members.splice(di, 0, item);
+    saveMembers(); renderAll();
+  };
+
+  return card;
+}
+
+function saveMembers() { localStorage.setItem("members", JSON.stringify(members)); }
+
+function getStatusInfo(id) {
+  var s = memberStatus[id] || '';
+  if (s === 'present') return {cls: 'on',      label: '✓ 出席'};
+  if (s === 'partial') return {cls: 'partial', label: '△ 遅刻・早退'};
+  return {cls: '', label: '欠席'};
+}
+
+function updateHeader() {
+  var presentCount = 0, partialCount = 0;
+  members.forEach(function(m) {
+    var s = memberStatus[m.id] || '';
+    if (s === 'present') presentCount++;
+    else if (s === 'partial') partialCount++;
+  });
+  var total = members.length;
+  var participating = presentCount + partialCount;
+  var pct = total === 0 ? 0 : Math.round(participating / total * 100);
+  document.getElementById("count-num").textContent = participating;
+  document.getElementById("count-total").textContent = "/ " + total + "名";
+  document.getElementById("progress-fill").style.width = pct + "%";
+  document.getElementById("pct-text").textContent = pct + "%";
+  document.getElementById("late-text").textContent = partialCount;
+  document.getElementById("absent-text").textContent = total - participating;
+}
+
+function toggleMember(id) {
+  var current = memberStatus[id] || '';
+  if (current === '')             memberStatus[id] = 'present';
+  else if (current === 'present') memberStatus[id] = 'partial';
+  else                            delete memberStatus[id];
+  renderAll();
+}
+
+function removeMember(id) {
+  members = members.filter(function(m){return m.id!==id;});
+  delete memberStatus[id];
+  delete memberGroups[id];
+  saveMembers(); saveMemberGroups(); renderAll();
+}
+
+function startEdit(id) {
+  var card = document.getElementById("card-" + id);
+  if (!card) return;
+  var nameEl = card.querySelector(".member-name");
+  if (!nameEl) return;
+  var member = members.find(function(m){return m.id===id;});
+  if (!member) return;
+  var input = document.createElement("input");
+  input.className = "member-name-input";
+  input.value = member.name;
+  nameEl.replaceWith(input);
+  input.focus();
+  function save() {
+    var n = input.value.trim();
+    if (n) { member.name = n; saveMembers(); }
+    var div = document.createElement("div");
+    div.className = "member-name"; div.textContent = member.name;
+    div.onclick = function(e) { e.stopPropagation(); startEdit(id); };
+    input.replaceWith(div);
+  }
+  input.onblur = save;
+  input.onkeydown = function(e) { if (e.key === "Enter") input.blur(); };
+}
+
+function resetAttendance() { memberStatus = {}; lastSessionId = null; currentEventDate = null; hideResult(); renderAll(); }
+
+function showAddForm() {
+  document.getElementById("add-form").classList.add("show");
+  document.getElementById("add-btn").style.display = "none";
+  document.getElementById("reset-btn").style.display = "none";
+  document.getElementById("new-name-input").focus();
+}
+function cancelAdd() {
+  document.getElementById("add-form").classList.remove("show");
+  document.getElementById("add-btn").style.display = "";
+  document.getElementById("reset-btn").style.display = "";
+  document.getElementById("new-name-input").value = "";
+}
+function confirmAdd() {
+  var name = document.getElementById("new-name-input").value.trim();
+  if (!name) return;
+  members.push({id: Date.now(), name: name});
+  saveMembers(); renderAll(); cancelAdd();
+}
+
+// ===== グループ管理モーダル =====
+function openManageGroups() {
+  modalMode = "manage-groups";
+  document.getElementById("modal-title").textContent = "🏷️ グループ管理";
+  document.getElementById("modal-desc").textContent = "グループを作成・編集・削除できます。メンバーカードのバッジからグループを割り当ててください。";
+  document.getElementById("modal-save-btn").style.display = "none";
+  document.getElementById("modal-del-btn").style.display = "none";
+  document.getElementById("modal-close-btn").textContent = "閉じる";
+  renderManageGroupsBody();
+  document.getElementById("modal-overlay").classList.add("show");
+}
+
+function renderManageGroupsBody() {
+  var body = document.getElementById("modal-body");
+  body.innerHTML = "";
+
+  if (groups.length === 0) {
+    var empty = document.createElement("div");
+    empty.style.cssText = "text-align:center;color:#b8996a;font-size:13px;padding:10px 0 14px;";
+    empty.textContent = "グループはまだありません";
+    body.appendChild(empty);
+  }
+
+  groups.forEach(function(g, idx) {
+    var row = document.createElement("div");
+    row.className = "group-list-item";
+
+    var dot = document.createElement("div");
+    dot.className = "group-list-color";
+    dot.style.background = g.color;
+
+    var nameInput = document.createElement("input");
+    nameInput.style.cssText = "flex:1;background:transparent;border:none;outline:none;font-size:13px;font-weight:700;color:#2d2416;";
+    nameInput.value = g.name;
+    nameInput.onchange = function() {
+      var n = nameInput.value.trim();
+      if (n) { g.name = n; saveGroups(); renderAll(); }
+    };
+
+    // 色変更ボタン
+    var colorBtn = document.createElement("button");
+    colorBtn.className = "group-list-edit";
+    colorBtn.textContent = "🎨";
+    colorBtn.title = "色を変更";
+    colorBtn.onclick = (function(group, dotEl) {
+      return function() {
+        var currentIdx = GROUP_COLORS.indexOf(group.color);
+        var nextIdx = (currentIdx + 1) % GROUP_COLORS.length;
+        group.color = GROUP_COLORS[nextIdx];
+        dotEl.style.background = group.color;
+        saveGroups(); renderAll();
+      };
+    })(g, dot);
+
+    var delBtn = document.createElement("button");
+    delBtn.className = "group-list-del";
+    delBtn.textContent = "✕";
+    delBtn.onclick = (function(gid) {
+      return function() {
+        groups = groups.filter(function(x){return x.id!==gid;});
+        // そのグループに属していたメンバーのグループをリセット
+        Object.keys(memberGroups).forEach(function(mid){
+          if (memberGroups[mid] === gid) delete memberGroups[mid];
+        });
+        saveGroups(); saveMemberGroups();
+        renderManageGroupsBody(); renderAll();
+      };
+    })(g.id);
+
+    row.appendChild(dot);
+    row.appendChild(nameInput);
+    row.appendChild(colorBtn);
+    row.appendChild(delBtn);
+    body.appendChild(row);
+  });
+
+  // 追加フォーム
+  var addRow = document.createElement("div");
+  addRow.className = "group-add-row";
+  var addInput = document.createElement("input");
+  addInput.className = "group-add-input";
+  addInput.placeholder = "新しいグループ名";
+  var addBtn = document.createElement("button");
+  addBtn.className = "group-add-btn";
+  addBtn.textContent = "追加";
+  addBtn.onclick = function() {
+    var name = addInput.value.trim();
+    if (!name) return;
+    var colorIdx = groups.length % GROUP_COLORS.length;
+    groups.push({id: String(Date.now()), name: name, color: GROUP_COLORS[colorIdx]});
+    saveGroups(); addInput.value = "";
+    renderManageGroupsBody(); renderAll();
+  };
+  addInput.onkeydown = function(e) { if (e.key === "Enter") addBtn.click(); };
+  addRow.appendChild(addInput);
+  addRow.appendChild(addBtn);
+  body.appendChild(addRow);
+}
+
+// ===== メンバーへのグループ設定 =====
+function openSetMemberGroup(memberId) {
+  if (groups.length === 0) { openManageGroups(); return; }
+  editingMemberIdForGroup = memberId;
+  modalMode = "set-member-group";
+  var member = members.find(function(m){return m.id===memberId;});
+  document.getElementById("modal-title").textContent = "🏷️ グループ設定";
+  document.getElementById("modal-desc").textContent = (member ? member.name : "") + " のグループを選択してください。";
+  document.getElementById("modal-save-btn").style.display = "none";
+  document.getElementById("modal-del-btn").style.display = "none";
+  document.getElementById("modal-close-btn").textContent = "閉じる";
+
+  var body = document.getElementById("modal-body");
+  body.innerHTML = "";
+
+  var list = document.createElement("div");
+  list.className = "group-select-list";
+
+  // 「なし」オプション
+  var noneItem = document.createElement("div");
+  noneItem.className = "group-select-item" + (!memberGroups[memberId] ? " selected" : "");
+  var noneDot = document.createElement("div");
+  noneDot.className = "group-select-dot";
+  noneDot.style.background = "#e8ddd0";
+  var noneLabel = document.createElement("div");
+  noneLabel.className = "group-select-label";
+  noneLabel.textContent = "未分類（なし）";
+  noneItem.appendChild(noneDot);
+  noneItem.appendChild(noneLabel);
+  noneItem.onclick = function() {
+    delete memberGroups[memberId];
+    saveMemberGroups(); closeModal(); renderAll();
+  };
+  list.appendChild(noneItem);
+
+  groups.forEach(function(g) {
+    var item = document.createElement("div");
+    item.className = "group-select-item" + (memberGroups[memberId] === g.id ? " selected" : "");
+    var dot = document.createElement("div");
+    dot.className = "group-select-dot";
+    dot.style.background = g.color;
+    var label = document.createElement("div");
+    label.className = "group-select-label";
+    label.textContent = g.name;
+    item.appendChild(dot);
+    item.appendChild(label);
+    item.onclick = (function(gid) {
+      return function() {
+        memberGroups[memberId] = gid;
+        saveMemberGroups(); closeModal(); renderAll();
+      };
+    })(g.id);
+    list.appendChild(item);
+  });
+
+  body.appendChild(list);
+  document.getElementById("modal-overlay").classList.add("show");
+}
+
+// ===== タブ切り替え =====
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("attendance-page").classList.toggle("active", tab === "attendance");
+  document.getElementById("schedule-page").classList.toggle("active", tab === "schedule");
+  document.getElementById("group-select-page").classList.toggle("active", tab === "group-select");
+  document.getElementById("header").style.display = tab === "attendance" ? "block" : "none";
+  document.getElementById("bottom-bar").style.display = tab === "attendance" ? "block" : "none";
+  var backBtn = document.getElementById("back-to-schedule");
+  if (backBtn) backBtn.style.display = tab === "attendance" ? "block" : "none";
+}
+
+// ===== スケジュール =====
+function todayStr() {
+  var d = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
+  return d.getFullYear() + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + String(d.getDate()).padStart(2,"0");
+}
+function parseDate(str) {
+  var m = str.trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (!m) return null;
+  return m[1] + "-" + m[2].padStart(2,"0") + "-" + m[3].padStart(2,"0");
+}
+function isoToDisplay(iso) {
+  if (!iso) return "";
+  var p = iso.split("-");
+  return p[0] + "/" + p[1] + "/" + p[2];
+}
+
+function loadSchedules() {
+  try {
+    var c = localStorage.getItem("schedules");
+    if (c) schedules = JSON.parse(c);
+  } catch(e) {}
+  renderSchedules();
+  fetch(GAS_URL + "?action=getSchedules")
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if (json && json.schedules) {
+        schedules = json.schedules;
+        localStorage.setItem("schedules", JSON.stringify(schedules));
+        renderSchedules();
+      }
+    })
+    .catch(function(){ renderSchedules(); });
+}
+
+function normalizeDate(raw) {
+  if (!raw) return "";
+  var m = String(raw).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return m[1] + "-" + m[2].padStart(2,"0") + "-" + m[3].padStart(2,"0");
+  var d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    var jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return jst.getUTCFullYear() + "-" + String(jst.getUTCMonth()+1).padStart(2,"0") + "-" + String(jst.getUTCDate()).padStart(2,"0");
+  }
+  return String(raw);
+}
+
+function renderSchedules() {
+  document.getElementById("schedule-loading").style.display = "none";
+  var list = document.getElementById("schedule-list");
+  list.innerHTML = "";
+  if (schedules.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#b8996a;font-size:13px;padding:40px 0;">スケジュールはまだありません<br><small>下のボタンから追加できます</small></div>';
+    return;
+  }
+  var weekdays = ["日","月","火","水","木","金","土"];
+  var normalized = schedules.map(function(s) {
+    return {id: s.id, name: s.name, date: normalizeDate(s.date)};
+  });
+  normalized.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  var monthOrder = [], groups_sched = {};
+  normalized.forEach(function(s){
+    var month = s.date.substring(0,7);
+    if (!groups_sched[month]) { groups_sched[month] = []; monthOrder.push(month); }
+    groups_sched[month].push(s);
+  });
+  monthOrder.forEach(function(month){
+    var items = groups_sched[month];
+    var p = month.split("-");
+    var title = document.createElement("div");
+    title.className = "schedule-section-title";
+    title.textContent = p[0] + "年 " + parseInt(p[1]) + "月";
+    list.appendChild(title);
+    items.forEach(function(s){
+      var parts = s.date.match(/(\d{4})-(\d{2})-(\d{2})/);
+      var dateStr = s.date;
+      if (parts) {
+        var y = parseInt(parts[1]), mo = parseInt(parts[2])-1, dy = parseInt(parts[3]);
+        var dow = new Date(y, mo, dy).getDay();
+        dateStr = y + "/" + String(mo+1).padStart(2,"0") + "/" + String(dy).padStart(2,"0") + "（" + weekdays[dow] + "）";
+      }
+      var el = document.createElement("div");
+      el.className = "schedule-item";
+      var left = document.createElement("div");
+      var dateDiv = document.createElement("div"); dateDiv.className = "schedule-date"; dateDiv.textContent = dateStr;
+      var nameDiv = document.createElement("div"); nameDiv.className = "schedule-name"; nameDiv.textContent = s.name;
+      left.appendChild(dateDiv); left.appendChild(nameDiv);
+      var arrow = document.createElement("div"); arrow.className = "schedule-arrow"; arrow.textContent = "▶";
+      el.appendChild(left); el.appendChild(arrow);
+      el.onclick = function() { selectSchedule(s); };
+      el.oncontextmenu = function(e) { e.preventDefault(); openEditSchedule(s); };
+      var pressTimer = null;
+      el.onmousedown = function() { pressTimer = setTimeout(function(){ pressTimer = null; openEditSchedule(s); }, 700); };
+      el.onmouseup = function() { if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; } };
+      el.onmouseleave = function() { if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; } };
+      list.appendChild(el);
+    });
+  });
+}
+
+function selectSchedule(s) {
+  showGroupSelectPage(s.name, s.date);
+}
+
+function showGroupSelectPage(sessionName, eventDate) {
+  currentEventDate = eventDate;
+  document.getElementById("session-label").value = sessionName;
+  document.getElementById("group-select-session-label").textContent = sessionName;
+  // グループがなければ直接出欠画面へ
+  if (groups.length === 0) {
+    activeGroupFilter = "all";
+    switchTab("attendance");
+    return;
+  }
+  renderGroupSelectButtons();
+  switchTab("group-select");
+}
+
+function renderGroupSelectButtons() {
+  var list = document.getElementById("group-btn-list");
+  list.innerHTML = "";
+
+  // 全員ボタン
+  var allBtn = document.createElement("button");
+  allBtn.className = "group-btn-all";
+  allBtn.onclick = function() { activeGroupFilter = "all"; switchTab("attendance"); renderAll(); };
+  var allName = document.createElement("span"); allName.className = "group-btn-all-name"; allName.textContent = "👥 全員";
+  var allCnt = document.createElement("span"); allCnt.className = "group-btn-all-count"; allCnt.textContent = members.length + "名";
+  var allArrow = document.createElement("span"); allArrow.className = "group-btn-all-arrow"; allArrow.textContent = "▶";
+  allBtn.appendChild(allName); allBtn.appendChild(allCnt); allBtn.appendChild(allArrow);
+  list.appendChild(allBtn);
+
+  // 各グループボタン
+  groups.forEach(function(g) {
+    var count = members.filter(function(m){ return memberGroups[m.id] === g.id; }).length;
+    if (count === 0) return;
+    var btn = document.createElement("div");
+    btn.className = "group-btn-item";
+    btn.style.borderColor = g.color;
+    var dot = document.createElement("div"); dot.className = "group-btn-color"; dot.style.background = g.color;
+    var name = document.createElement("div"); name.className = "group-btn-name"; name.textContent = g.name;
+    var cnt = document.createElement("div"); cnt.className = "group-btn-count"; cnt.textContent = count + "名";
+    var arrow = document.createElement("div"); arrow.className = "group-btn-arrow"; arrow.textContent = "▶";
+    btn.appendChild(dot); btn.appendChild(name); btn.appendChild(cnt); btn.appendChild(arrow);
+    btn.onclick = (function(gid){ return function(){ activeGroupFilter = gid; switchTab("attendance"); renderAll(); }; })(g.id);
+    list.appendChild(btn);
+  });
+}
+
+function openAddSchedule() {
+  modalMode = "add-schedule";
+  document.getElementById("modal-title").textContent = "📅 スケジュール追加";
+  document.getElementById("modal-desc").textContent = "日付（YYYY/MM/DD）と活動名を入力してください。";
+  document.getElementById("modal-body").innerHTML =
+    '<input id="sched-date" class="modal-input" type="text" placeholder="例：2025/04/10" value="' + todayStr() + '" />' +
+    '<input id="sched-name" class="modal-input" type="text" placeholder="活動名（例：4月練習、春合宿）" />';
+  document.getElementById("modal-save-btn").style.display = "";
+  document.getElementById("modal-save-btn").textContent = "追加";
+  document.getElementById("modal-del-btn").style.display = "none";
+  document.getElementById("modal-overlay").classList.add("show");
+  setTimeout(function(){ document.getElementById("sched-name").focus(); }, 100);
+}
+
+function openEditSchedule(s) {
+  modalMode = "edit-schedule";
+  editingScheduleId = s.id;
+  document.getElementById("modal-title").textContent = "📅 スケジュール編集";
+  document.getElementById("modal-desc").textContent = "変更して「更新」を押してください。";
+  document.getElementById("modal-body").innerHTML =
+    '<input id="sched-date" class="modal-input" type="text" value="' + isoToDisplay(s.date) + '" />' +
+    '<input id="sched-name" class="modal-input" type="text" value="' + s.name.replace(/"/g,'&quot;') + '" />';
+  document.getElementById("modal-save-btn").style.display = "";
+  document.getElementById("modal-save-btn").textContent = "更新";
+  document.getElementById("modal-del-btn").style.display = "";
+  document.getElementById("modal-overlay").classList.add("show");
+}
+
+function deleteScheduleItem() {
+  if (!confirm("このスケジュールを削除しますか？")) return;
+  var id = editingScheduleId;
+  schedules = schedules.filter(function(s){return s.id !== id;});
+  localStorage.setItem("schedules", JSON.stringify(schedules));
+  renderSchedules(); closeModal();
+  postViaForm({action:"deleteSchedule", id:id}, null);
+}
+
+// ===== モーダル =====
+function openSettings() {
+  modalMode = "settings";
+  document.getElementById("modal-title").textContent = "⚙️ スプレッドシート連携";
+  document.getElementById("modal-desc").textContent = "現在のGAS URL（変更する場合のみ編集してください）";
+  document.getElementById("modal-body").innerHTML = '<input id="gas-url-input" class="modal-input" type="text" value="' + GAS_URL + '" />';
+  document.getElementById("modal-save-btn").style.display = "";
+  document.getElementById("modal-save-btn").textContent = "閉じる";
+  document.getElementById("modal-del-btn").style.display = "none";
+  document.getElementById("modal-overlay").classList.add("show");
+}
+function closeModal() {
+  document.getElementById("modal-overlay").classList.remove("show");
+  document.getElementById("modal-save-btn").style.display = "";
+}
+
+function saveModal() {
+  if (modalMode === "settings") {
+    closeModal();
+  } else if (modalMode === "add-schedule") {
+    var date = parseDate(document.getElementById("sched-date").value);
+    var name = document.getElementById("sched-name").value.trim();
+    if (!date || !name) { alert("日付はYYYY/MM/DD形式で入力してください"); return; }
+    var newS = {id: String(Date.now()), date: date, name: name};
+    schedules.push(newS);
+    localStorage.setItem("schedules", JSON.stringify(schedules));
+    renderSchedules(); closeModal();
+    postViaForm({action:"addSchedule", schedule:newS}, null);
+  } else if (modalMode === "edit-schedule") {
+    var date = parseDate(document.getElementById("sched-date").value);
+    var name = document.getElementById("sched-name").value.trim();
+    if (!date || !name) { alert("日付はYYYY/MM/DD形式で入力してください"); return; }
+    var s = schedules.find(function(x){return x.id===editingScheduleId;});
+    if (s) { s.date = date; s.name = name; }
+    localStorage.setItem("schedules", JSON.stringify(schedules));
+    renderSchedules(); closeModal();
+    postViaForm({action:"updateSchedule", schedule:s}, null);
+  }
+}
+
+// ===== 送受信 =====
+function showResult(ok, msg, canUndo) {
+  var el = document.getElementById("send-result");
+  document.getElementById("result-msg").textContent = msg;
+  el.className = ok ? "ok" : "err";
+  document.getElementById("undo-btn").style.display = (canUndo && lastSessionId) ? "inline-block" : "none";
+}
+function hideResult() {
+  var el = document.getElementById("send-result");
+  el.className = ""; el.style.display = "none";
+  document.getElementById("undo-btn").style.display = "none";
+}
+
+function postViaForm(payload, onDone) {
+  var form = document.createElement("form");
+  form.method = "POST"; form.action = GAS_URL; form.target = "gas-iframe";
+  var input = document.createElement("input");
+  input.type = "hidden"; input.name = "payload"; input.value = JSON.stringify(payload);
+  form.appendChild(input); document.body.appendChild(form);
+  var iframe = document.getElementById("gas-iframe");
+  iframe.onload = function() { document.body.removeChild(form); if (onDone) onDone(); };
+  form.submit();
+}
+
+function sendToSheet() {
+  var btn = document.getElementById("send-btn");
+  btn.disabled = true; btn.textContent = "送信中...";
+  var sessionId = String(Date.now());
+  var payload = {
+    action: "record",
+    sessionId: sessionId,
+    session: document.getElementById("session-label").value,
+    eventDate: currentEventDate,
+    members: members.map(function(m){
+      var s = memberStatus[m.id] || '';
+      var score = s === 'present' ? 1 : s === 'partial' ? 0.5 : 0;
+      return {name: m.name, attended: score};
+    })
+  };
+  postViaForm(payload, function() {
+    lastSessionId = sessionId;
+    btn.disabled = false; btn.textContent = "📊 スプレッドシートに記録する";
+    showResult(true, "✓ スプレッドシートに記録しました！", true);
+  });
+}
+
+function undoRecord() {
+  if (!lastSessionId) return;
+  var btn = document.getElementById("undo-btn");
+  btn.textContent = "取消中..."; btn.disabled = true;
+  var sid = lastSessionId;
+  postViaForm({action:"undo", sessionId:sid}, function() {
+    lastSessionId = null;
+    btn.textContent = "↩ 取り消す"; btn.disabled = false;
+    showResult(true, "↩ 直前の記録を取り消しました", false);
+  });
+}
+
+init();
+</script>
+<iframe id="gas-iframe" name="gas-iframe" style="display:none;"></iframe>
+</body>
+</html>
